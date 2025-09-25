@@ -1,16 +1,19 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
+ * ShiftApp - React Native приложение для поиска смен
  */
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import React from 'react';
+import { StatusBar, useColorScheme } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 import {
   SafeAreaProvider,
-  useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+
+import ShiftsListScreen from './src/screens/ShiftsListScreen';
+import ShiftDetailsScreen from './src/screens/ShiftDetailsScreen';
+
+const Stack = createStackNavigator();
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -18,28 +21,33 @@ function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
+      <NavigationContainer>
+        <Stack.Navigator
+          initialRouteName="ShiftsList"
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: '#2196F3',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        >
+          <Stack.Screen
+            name="ShiftsList"
+            component={ShiftsListScreen}
+            options={{ title: 'Доступные смены' }}
+          />
+          <Stack.Screen
+            name="ShiftDetails"
+            component={ShiftDetailsScreen}
+            options={{ title: 'Детали смены' }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 
 export default App;
