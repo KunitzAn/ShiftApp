@@ -1,13 +1,39 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { rootStore, Shift } from '../stores/RootStore';
+import { LocationService } from '../services/LocationService';
+import { ShiftsService } from '../services/ShiftsService';
 
 interface Props {
   navigation: any;
 }
 
 const ShiftsListScreen = observer(({ navigation }: Props) => {
+  useEffect(() => {
+    initializeApp();
+  }, []);
+
+  const initializeApp = async () => {
+    try {
+      // Запрашиваем геолокацию
+      rootStore.setLocationLoading(true);
+      const location = await LocationService.getCurrentLocation();
+      rootStore.setLocation(location);
+      rootStore.setLocationLoading(false);
+
+      // Загружаем смены
+      rootStore.setShiftsLoading(true);
+      const shifts = await ShiftsService.getShifts(location.latitude, location.longitude);
+      rootStore.setShifts(shifts);
+      rootStore.setShiftsLoading(false);
+    } catch (error) {
+      console.error('Error initializing app:', error);
+      rootStore.setLocationError(error instanceof Error ? error.message : 'Неизвестная ошибка');
+      rootStore.setShiftsError(error instanceof Error ? error.message : 'Неизвестная ошибка');
+    }
+  };
+
   const renderShiftItem = ({ item }: { item: Shift }) => (
     <TouchableOpacity
       style={styles.shiftItem}
@@ -19,10 +45,18 @@ const ShiftsListScreen = observer(({ navigation }: Props) => {
     </TouchableOpacity>
   );
 
-  if (rootStore.shiftsLoading) {
+  if (rootStore.locationLoading || rootStore.shiftsLoading) {
     return (
       <View style={styles.centerContainer}>
-        <Text>Загрузка смен...</Text>
+        <Text>Загрузка...</Text>
+      </View>
+    );
+  }
+
+  if (rootStore.locationError) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>Ошибка геолокации: {rootStore.locationError}</Text>
       </View>
     );
   }
@@ -30,7 +64,15 @@ const ShiftsListScreen = observer(({ navigation }: Props) => {
   if (rootStore.shiftsError) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Ошибка: {rootStore.shiftsError}</Text>
+        <Text style={styles.errorText}>Ошибка загрузки смен: {rootStore.shiftsError}</Text>
+      </View>
+    );
+  }
+
+  if (!rootStore.hasShifts) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text>Смены не найдены</Text>
       </View>
     );
   }
