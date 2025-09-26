@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useEffect, useCallback, memo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { rootStore, Shift } from '../stores/RootStore';
 import { LocationService } from '../services/LocationService';
@@ -34,7 +34,7 @@ const ShiftsListScreen = observer(({ navigation }: Props) => {
     }
   };
 
-  const renderShiftItem = ({ item }: { item: Shift }) => (
+  const renderShiftItem = useCallback(({ item }: { item: Shift }) => (
     <TouchableOpacity
       style={styles.shiftItem}
       onPress={() => navigation.navigate('ShiftDetails', { shift: item })}
@@ -43,12 +43,16 @@ const ShiftsListScreen = observer(({ navigation }: Props) => {
       <Text style={styles.address}>{item.address}</Text>
       <Text style={styles.price}>₽{item.priceWorker}</Text>
     </TouchableOpacity>
-  );
+  ), [navigation]);
+
+  const keyExtractor = useCallback((item: Shift, index: number) => 
+    `${item.companyName}-${item.dateStartByCity}-${index}`, []);
 
   if (rootStore.locationLoading || rootStore.shiftsLoading) {
     return (
       <View style={styles.centerContainer}>
-        <Text>Загрузка...</Text>
+        <ActivityIndicator size="large" color="#2196F3" />
+        <Text style={styles.loadingText}>Загрузка...</Text>
       </View>
     );
   }
@@ -81,9 +85,13 @@ const ShiftsListScreen = observer(({ navigation }: Props) => {
     <View style={styles.container}>
       <FlatList
         data={rootStore.shifts}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={keyExtractor}
         renderItem={renderShiftItem}
         contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={10}
       />
     </View>
   );
@@ -135,6 +143,11 @@ const styles = StyleSheet.create({
     color: '#f44336',
     textAlign: 'center',
   },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
 });
 
-export default ShiftsListScreen;
+export default memo(ShiftsListScreen);

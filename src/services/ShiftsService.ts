@@ -2,8 +2,9 @@ import axios from 'axios';
 import { Shift } from '../stores/RootStore';
 
 const API_BASE_URL = 'https://mobile.handswork.pro/api';
+const API_PATH = 'shifts/map-list-unauthorized';
 
-// Моковые данные для демонстрации
+// Моковые данные для демонстрации (фолбэк)
 const MOCK_SHIFTS: Shift[] = [
   {
     logo: 'https://via.placeholder.com/50x50/4CAF50/FFFFFF?text=C1',
@@ -19,77 +20,50 @@ const MOCK_SHIFTS: Shift[] = [
     customerFeedbacksCount: 25,
     customerRating: 4.5,
   },
-  {
-    logo: 'https://via.placeholder.com/50x50/2196F3/FFFFFF?text=S2',
-    address: 'пр. Невский, 100, Санкт-Петербург',
-    companyName: 'Магазин "Спорт"',
-    dateStartByCity: '2024-01-16',
-    timeStartByCity: '10:00',
-    timeEndByCity: '18:00',
-    currentWorkers: 1,
-    planWorkers: 2,
-    workTypes: 'Продавец-консультант',
-    priceWorker: 2000,
-    customerFeedbacksCount: 18,
-    customerRating: 4.2,
-  },
-  {
-    logo: 'https://via.placeholder.com/50x50/FF9800/FFFFFF?text=R3',
-    address: 'ул. Арбат, 25, Москва',
-    companyName: 'Ресторан "Восток"',
-    dateStartByCity: '2024-01-17',
-    timeStartByCity: '19:00',
-    timeEndByCity: '23:00',
-    currentWorkers: 3,
-    planWorkers: 4,
-    workTypes: 'Повар',
-    priceWorker: 3000,
-    customerFeedbacksCount: 42,
-    customerRating: 4.8,
-  },
 ];
+
+function mapApiToShift(item: any): Shift {
+  const workTypes = Array.isArray(item.workTypes)
+    ? item.workTypes.map((w: any) => w?.name).filter(Boolean).join(', ')
+    : (item.workTypes ?? '');
+  const feedbackCount = typeof item.customerFeedbacksCount === 'string'
+    ? parseInt(String(item.customerFeedbacksCount).replace(/\D+/g, ''), 10) || 0
+    : (item.customerFeedbacksCount ?? 0);
+
+  return {
+    logo: item.logo ?? '',
+    address: item.address ?? '',
+    companyName: item.companyName ?? '',
+    dateStartByCity: item.dateStartByCity ?? '',
+    timeStartByCity: item.timeStartByCity ?? '',
+    timeEndByCity: item.timeEndByCity ?? '',
+    currentWorkers: Number(item.currentWorkers ?? 0),
+    planWorkers: Number(item.planWorkers ?? 0),
+    workTypes,
+    priceWorker: Number(item.priceWorker ?? 0),
+    customerFeedbacksCount: feedbackCount,
+    customerRating: typeof item.customerRating === 'number' ? item.customerRating : 0,
+  };
+}
 
 export class ShiftsService {
   static async getShifts(latitude: number, longitude: number): Promise<Shift[]> {
-    // Сначала попробуем реальный API
-    const candidates: Array<{ path: string; params: Record<string, number | string> }> = [
-      { path: 'shift', params: { latitude, longitude } },
-      { path: 'shift', params: { lat: latitude, lon: longitude } },
-      { path: 'shifts', params: { latitude, longitude } },
-      { path: 'shifts', params: { lat: latitude, lon: longitude } },
-    ];
+    const url = `${API_BASE_URL}/${API_PATH}`;
+    try {
+      // eslint-disable-next-line no-console
+      console.log('Requesting shifts:', url, { latitude, longitude });
+      const response = await axios.get(url, { params: { latitude, longitude } });
 
-    let lastError: unknown = null;
-
-    for (const candidate of candidates) {
-      const url = `${API_BASE_URL}/${candidate.path}`;
-      try {
-        // eslint-disable-next-line no-console
-        console.log('Requesting shifts:', url, candidate.params);
-        const response = await axios.get(url, { params: candidate.params });
-        return response.data;
-      } catch (error: any) {
-        lastError = error;
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
-          // eslint-disable-next-line no-console
-          console.warn('404 for', url, 'trying next variant...');
-          continue;
-        }
-        // eslint-disable-next-line no-console
-        console.error('Request failed for', url, error?.message ?? error);
-        break;
-      }
+      // Ожидаемый формат: { data: [...], status: 200 }
+      const payload = response.data;
+      const list = Array.isArray(payload?.data) ? payload.data : [];
+      const mapped: Shift[] = list.map(mapApiToShift);
+      return mapped;
+    } catch (error: any) {
+      // eslint-disable-next-line no-console
+      console.error('Error fetching shifts:', error?.message ?? error);
+      // Фолбэк на моковые данные, чтобы приложение продолжало работать
+      return MOCK_SHIFTS;
     }
-
-    // Если все варианты API не работают, используем моковые данные
-    // eslint-disable-next-line no-console
-    console.warn('API недоступен, используем моковые данные для демонстрации');
-    // eslint-disable-next-line no-console
-    console.log('Location:', { latitude, longitude });
-    
-    // Имитируем задержку сети
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return MOCK_SHIFTS;
   }
 }
